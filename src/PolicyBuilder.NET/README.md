@@ -12,8 +12,11 @@
 
 ## Installation
 
-To install `ResilientRefit`, add the following NuGet package to your project:
+To install `PolicyBuilder.NET`, add the PolicyBuilder.NET NuGet package to your project:
 
+```
+dotnet add package PolicyBuilder.NET 
+```
 
 ## Configuration
 
@@ -52,24 +55,25 @@ public interface IMyRefitClient { [Get("/endpoint")] Task<ApiResponse> GetEndpoi
 ```
 
 
-## API Reference
+## How to use it
 
-### `PollyPoliciesExtensions`
 
-#### `ConfigureRefitClient<TClient>`
 
-First step is to register the 
+First step is to register the register the policies defined in the appsettings.json to the policy registry
 
 ```csharp
 
     // Configure Polly policies
-    var configuredPolicyName = services.ConfigurePollyPolicies<TClient>(configuration, sectionName);
+    var configuredPolicyName = services.ConfigurePollyPolicies<IMyRefitClient>(configuration, sectionName);
+
+```
+Once the policies are registered with the policy registry in the above method, we get the name of the policy as return value from the method. Use this to the http client builder(IHttpClientBuilder)
+
+```csharp
 
     // Configure the Refit client with the base URL and Polly policies
-    services.AddRefitClient<TClient>()
-        .ConfigureHttpClient(c => c.BaseAddress = new Uri(baseUrl))
+    services.AddRefitClient<IMyRefitClient>() // or any other means to //add your http client
         .AddPolicyHandlerFromRegistry(configuredPolicyName);
-
 ```
 
 

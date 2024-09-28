@@ -5,7 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PackageId>PolicyBuilder.NET</PackageId>
-    <Version>1.0.5</Version>
+    <Version>1.0.6</Version>
     <!-- Use Semantic Versioning -->
     <Authors>Zameer Khan</Authors>
     <Description>A robust .NET library that helps to add resiliency policies to an http client</Description>
