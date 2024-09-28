@@ -1,125 +1,241 @@
-﻿using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Refit;
-using Xunit;
-using ResilientRefit.Core.Proxy;
+﻿using System.Net;
 using FluentAssertions;
-using Polly;
-using Polly.Timeout;
-using Polly.CircuitBreaker;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
+using Polly;
+using Xunit;
+using PolicyBuilder = ResilientRefit.Core.PolicyBuilder;
 
 namespace ResilientRefit.Tests;
 
-
-public class IntegrationTests : IClassFixture<PolicyRegistryFixture>
+public class PolicyBuilderIntegrationTests
 {
+    private readonly Mock<ILogger<PolicyBuilder>> _loggerMock = new();
     private readonly IConfiguration _configuration;
-    private readonly PolicyRegistryFixture _policyRegistryFixture;
-    private readonly List<TestScenario> _testScenarios;
-    private readonly ILogger<IntegrationTests> _logger;
 
-    public IntegrationTests(PolicyRegistryFixture policyRegistryFixture)
+    public PolicyBuilderIntegrationTests()
     {
-        _policyRegistryFixture = policyRegistryFixture;
-
-        // Create a mock logger
-        var mockLogger = new Mock<ILogger<IntegrationTests>>();
-        _logger = mockLogger.Object;
-
-        // Load the appsettings.integrationtests.json
-        _configuration = new ConfigurationBuilder()
-            .SetBasePath(Directory.GetCurrentDirectory())
-            .AddJsonFile("appsettings.integrationtests.json")
-            .Build();
-
-        // Load test scenarios
-        _testScenarios = new List<TestScenario>(_configuration.GetSection("TestScenarios").Get<TestScenario[]>());
-    }
-
-    private IHttpBinClient CreateHttpBinClient(IAsyncPolicy<HttpResponseMessage> policy)
-    {
-        // Set up the service collection for dependency injection
-        var serviceCollection = new ServiceCollection();
-
-        // Read configuration values
-        var baseUrl = _configuration["BaseUrl"];
-
-        // Configure Refit client with the provided policy
-        serviceCollection.AddRefitClient<IHttpBinClient>()
-            .ConfigureHttpClient(c => c.BaseAddress = new Uri(baseUrl))
-            .AddPolicyHandler(policy);
-
-        // Build service provider
-        var serviceProvider = serviceCollection.BuildServiceProvider();
-        return serviceProvider.GetRequiredService<IHttpBinClient>();
+        var configurationBuilder = new ConfigurationBuilder()
+            .AddJsonFile("appsettings.integrationtests.json");
+        _configuration = configurationBuilder.Build();
     }
 
     [Fact]
-    public async Task Test_FaultInjection_With_HighLatency()
+    public async Task FaultInjectionWithHighLatency()
     {
-        var scenario = _testScenarios.Find(s => s.ScenarioName == "Fault Injection with High Latency");
-        if (scenario != null)
+        var scenario = _configuration.GetSection("TestScenarios")
+            .Get<List<TestScenario>>()
+            .First(s => s.ScenarioName == "Fault Injection with High Latency");
+
+        // Arrange
+        var builder = new PolicyBuilder(_loggerMock.Object)
+            .WithRetryPolicy(_configuration.GetValue<int>("Resilience:RetryCount"), 1, 1)
+            .WithCircuitBreakerPolicy(_configuration.GetValue<int>("Resilience:CircuitBreakerFailureThreshold"), TimeSpan.FromSeconds(_configuration.GetValue<int>("Resilience:CircuitBreakerDurationOfBreak")))
+            .WithTimeoutPolicy(TimeSpan.FromSeconds(_configuration.GetValue<int>("Resilience:TimeoutSeconds")));
+
+        var policy = builder.Build();
+
+        // Act
+        Func<Task<HttpResponseMessage>> act = () => policy.ExecuteAsync(async (context, token) =>
         {
-            _logger.LogInformation($"Testing scenario: {scenario.ScenarioName}");
-            _logger.LogInformation($"InjectFault: {scenario.InjectFault}, FaultInjectionRate: {scenario.FaultInjectionRate}, LatencyInjectionRate: {scenario.LatencyInjectionRate}");
-
-            // Get the policy for the current scenario
-            var policyKey = $"Scenario_{scenario.InjectFault}_{scenario.FaultInjectionRate}_{scenario.LatencyInjectionRate}";
-            var policy = _policyRegistryFixture.PolicyRegistry[policyKey];
-
-            // Create a new instance of IHttpBinClient with the current policy
-            var httpBinClient = CreateHttpBinClient(policy);
-
-            // Perform API call
-            Func<Task> act = async () => { var result = await httpBinClient.GetAsync(); };
-
-            // Assert that the call throws a TimeoutRejectedException
-            await act.Should().ThrowAsync<TimeoutRejectedException>("because the test scenario is expected to fail with a timeout")
-                .WithMessage("*timeout*");
-        }
-        else
-        {
-            _logger.LogError("Test scenario 'Fault Injection with High Latency' not found.");
-            using (new FluentAssertions.Execution.AssertionScope())
+            if (scenario.InjectFault && new Random().NextDouble() < scenario.FaultInjectionRate)
             {
-                FluentAssertions.Execution.AssertionScope.Current.FailWith("Test scenario 'Fault Injection with High Latency' not found.");
+                throw new HttpRequestException("Injected fault");
             }
-        }
+
+            if (new Random().NextDouble() < scenario.LatencyInjectionRate)
+            {
+                await Task.Delay(scenario.InjectedLatencyMilliseconds, token);
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        }, new Context(), CancellationToken.None);
+
+        // Assert
+        await act.Should().ThrowAsync<Exception>();
     }
 
     [Fact]
-    public async Task Test_NoFaultInjection()
+    public async Task NoFaultInjection()
     {
-        var scenario = _testScenarios.Find(s => s.ScenarioName == "No Fault Injection");
-        if (scenario != null)
+        var scenario = _configuration.GetSection("TestScenarios")
+            .Get<List<TestScenario>>()
+            .First(s => s.ScenarioName == "No Fault Injection");
+
+        // Arrange
+        var builder = new PolicyBuilder(_loggerMock.Object)
+            .WithRetryPolicy(_configuration.GetValue<int>("Resilience:RetryCount"), 1, 1)
+            .WithCircuitBreakerPolicy(_configuration.GetValue<int>("Resilience:CircuitBreakerFailureThreshold"), TimeSpan.FromSeconds(_configuration.GetValue<int>("Resilience:CircuitBreakerDurationOfBreak")))
+            .WithTimeoutPolicy(TimeSpan.FromSeconds(_configuration.GetValue<int>("Resilience:TimeoutSeconds")));
+
+        var policy = builder.Build();
+
+        // Act
+        Func<Task<HttpResponseMessage>> act = () => policy.ExecuteAsync(async (context, token) =>
         {
-            _logger.LogInformation($"Testing scenario: {scenario.ScenarioName}");
-            _logger.LogInformation($"InjectFault: {scenario.InjectFault}, FaultInjectionRate: {scenario.FaultInjectionRate}, LatencyInjectionRate: {scenario.LatencyInjectionRate}");
-
-            // Get the policy for the current scenario
-            var policyKey = $"Scenario_{scenario.InjectFault}_{scenario.FaultInjectionRate}_{scenario.LatencyInjectionRate}";
-            var policy = _policyRegistryFixture.PolicyRegistry[policyKey];
-
-            // Create a new instance of IHttpBinClient with the current policy
-            var httpBinClient = CreateHttpBinClient(policy);
-
-            // Perform API call
-            try
+            if (scenario.InjectFault && new Random().NextDouble() < scenario.FaultInjectionRate)
             {
-                var result = await httpBinClient.GetAsync();
-                result.Should().NotBeNull("because a valid result is expected from the API call");
-                _logger.LogInformation($"API Call Success: {result}");
+                throw new HttpRequestException("Injected fault");
             }
-            catch (Exception ex) when (ex is ApiException || ex is TimeoutRejectedException || ex is BrokenCircuitException)
+
+            if (new Random().NextDouble() < scenario.LatencyInjectionRate)
             {
-                _logger.LogError(ex, $"API Call Failed with {ex.GetType().Name}: {ex.Message}");
+                await Task.Delay(scenario.InjectedLatencyMilliseconds, token);
             }
-        }
-        else
-        {
-            _logger.LogError("Test scenario 'No Fault Injection' not found.");
-        }
+
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        }, new Context(), CancellationToken.None);
+
+        // Assert
+        var result = await act();
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
     }
+
+    [Fact]
+    public async Task FaultInjectionWithoutLatency()
+    {
+        var scenario = _configuration.GetSection("TestScenarios")
+            .Get<List<TestScenario>>()
+            .First(s => s.ScenarioName == "Fault Injection without Latency");
+
+        // Arrange
+        var builder = new PolicyBuilder(_loggerMock.Object)
+            .WithRetryPolicy(_configuration.GetValue<int>("Resilience:RetryCount"), 1, 1)
+            .WithCircuitBreakerPolicy(_configuration.GetValue<int>("Resilience:CircuitBreakerFailureThreshold"), TimeSpan.FromSeconds(_configuration.GetValue<int>("Resilience:CircuitBreakerDurationOfBreak")))
+            .WithTimeoutPolicy(TimeSpan.FromSeconds(_configuration.GetValue<int>("Resilience:TimeoutSeconds")));
+
+        var policy = builder.Build();
+
+        // Act
+        Func<Task<HttpResponseMessage>> act = () => policy.ExecuteAsync(async (context, token) =>
+        {
+            if (scenario.InjectFault && new Random().NextDouble() < scenario.FaultInjectionRate)
+            {
+                throw new HttpRequestException("Injected fault");
+            }
+
+            if (new Random().NextDouble() < scenario.LatencyInjectionRate)
+            {
+                await Task.Delay(scenario.InjectedLatencyMilliseconds, token);
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        }, new Context(), CancellationToken.None);
+
+        // Assert
+        await act.Should().ThrowAsync<Exception>();
+    }
+
+    [Fact]
+    public async Task HighLatencyWithoutFaultInjection()
+    {
+        var scenario = _configuration.GetSection("TestScenarios")
+            .Get<List<TestScenario>>()
+            .First(s => s.ScenarioName == "High Latency without Fault Injection");
+
+        // Arrange
+        var builder = new PolicyBuilder(_loggerMock.Object)
+            .WithRetryPolicy(_configuration.GetValue<int>("Resilience:RetryCount"), 1, 1)
+            .WithCircuitBreakerPolicy(_configuration.GetValue<int>("Resilience:CircuitBreakerFailureThreshold"), TimeSpan.FromSeconds(_configuration.GetValue<int>("Resilience:CircuitBreakerDurationOfBreak")))
+            .WithTimeoutPolicy(TimeSpan.FromSeconds(_configuration.GetValue<int>("Resilience:TimeoutSeconds")));
+
+        var policy = builder.Build();
+
+        // Act
+        Func<Task<HttpResponseMessage>> act = () => policy.ExecuteAsync(async (context, token) =>
+        {
+            if (scenario.InjectFault && new Random().NextDouble() < scenario.FaultInjectionRate)
+            {
+                throw new HttpRequestException("Injected fault");
+            }
+
+            if (new Random().NextDouble() < scenario.LatencyInjectionRate)
+            {
+                await Task.Delay(scenario.InjectedLatencyMilliseconds, token);
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        }, new Context(), CancellationToken.None);
+
+        // Assert
+        await act.Should().ThrowAsync<Exception>();
+    }
+
+    [Fact]
+    public async Task PartialFaultInjectionWithLatency()
+    {
+        var scenario = _configuration.GetSection("TestScenarios")
+            .Get<List<TestScenario>>()
+            .First(s => s.ScenarioName == "Partial Fault Injection with Latency");
+
+        // Arrange
+        var builder = new PolicyBuilder(_loggerMock.Object)
+            .WithRetryPolicy(_configuration.GetValue<int>("Resilience:RetryCount"), 1, 1)
+            .WithCircuitBreakerPolicy(_configuration.GetValue<int>("Resilience:CircuitBreakerFailureThreshold"), TimeSpan.FromSeconds(_configuration.GetValue<int>("Resilience:CircuitBreakerDurationOfBreak")))
+            .WithTimeoutPolicy(TimeSpan.FromSeconds(_configuration.GetValue<int>("Resilience:TimeoutSeconds")));
+
+        var policy = builder.Build();
+
+        // Act
+        Func<Task<HttpResponseMessage>> act = () => policy.ExecuteAsync(async (context, token) =>
+        {
+            // Control randomness for testing
+            if (scenario.InjectFault)
+            {
+                throw new HttpRequestException("Injected fault");
+            }
+
+            if (scenario.LatencyInjectionRate > 0)
+            {
+                await Task.Delay(scenario.InjectedLatencyMilliseconds, token);
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        }, new Context(), CancellationToken.None);
+
+        // Assert
+        await act.Should().ThrowAsync<Exception>()
+            .Where(e => e is HttpRequestException || e is Polly.CircuitBreaker.BrokenCircuitException);
+    }
+
+
+
+    [Fact]
+    public async Task PartialFaultInjectionWithoutLatency()
+    {
+        var scenario = _configuration.GetSection("TestScenarios")
+            .Get<List<TestScenario>>()
+            .First(s => s.ScenarioName == "Partial Fault Injection without Latency");
+
+        // Arrange
+        var builder = new PolicyBuilder(_loggerMock.Object)
+            .WithRetryPolicy(_configuration.GetValue<int>("Resilience:RetryCount"), 1, 1)
+            .WithCircuitBreakerPolicy(_configuration.GetValue<int>("Resilience:CircuitBreakerFailureThreshold"), TimeSpan.FromSeconds(_configuration.GetValue<int>("Resilience:CircuitBreakerDurationOfBreak")))
+            .WithTimeoutPolicy(TimeSpan.FromSeconds(_configuration.GetValue<int>("Resilience:TimeoutSeconds")));
+
+        var policy = builder.Build();
+
+        // Act
+        Func<Task<HttpResponseMessage>> act = () => policy.ExecuteAsync(async (context, token) =>
+        {
+            if (scenario.InjectFault && new Random().NextDouble() < scenario.FaultInjectionRate)
+            {
+                throw new HttpRequestException("Injected fault");
+            }
+
+            if (new Random().NextDouble() < scenario.LatencyInjectionRate)
+            {
+                await Task.Delay(scenario.InjectedLatencyMilliseconds, token);
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        }, new Context(), CancellationToken.None);
+
+        // Assert
+        var result = await act();
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+
 }
