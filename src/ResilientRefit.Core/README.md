@@ -1,8 +1,8 @@
-# ResilientRefit
+# ResilientRefit.Core
 
 ## Overview
 
-`ResilientRefit` is a library designed to enhance the resilience of Refit clients by integrating Polly policies. This library allows you to configure Refit clients with retry, circuit breaker, and timeout policies, ensuring that your HTTP requests are more robust and fault-tolerant.
+`ResilientRefit.Core` is a library designed to enhance the resilience of Refit clients by integrating Polly policies. This library allows you to configure Refit clients with retry, circuit breaker, and timeout policies, ensuring that your HTTP requests are more robust and fault-tolerant.
 
 ## Features
 
@@ -12,7 +12,7 @@
 
 ## Installation
 
-To install `ResilientRefit`, add the following NuGet package to your project:
+To install `ResilientRefit.Core`, add the following NuGet package to your project:
 
 
 ## Configuration
@@ -61,7 +61,6 @@ public interface IMyRefitClient { [Get("/endpoint")] Task<ApiResponse> GetEndpoi
 Configures a Refit client with Polly policies.
 
 ```csharp
-
 public class Startup
 {
     public void ConfigureServices(IServiceCollection services)
@@ -70,7 +69,7 @@ public class Startup
             .AddJsonFile("appsettings.json")
             .Build();
 
-      services.ConfigureRefitClient<IMyRefitClient>(configuration, "MyRefitClient");
+     +    services.ConfigureRefitClient<IMyRefitClient>(configuration, "MyRefitClient");
     }
 }
 
