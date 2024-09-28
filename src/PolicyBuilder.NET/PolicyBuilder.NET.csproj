@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackageId>PolicyBuilder.NET</PackageId>
+    <Version>1.0.5</Version>
+    <!-- Use Semantic Versioning -->
+    <Authors>Zameer Khan</Authors>
+    <Description>A robust .NET library that helps to add resiliency policies to an http client</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/zameerkh/PolicyBuilder.NET</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/zameerkh/PolicyBuilder.NET</PackageProjectUrl>
+    <IconUrl>https://github.com/zameerkh/PolicyBuilder.NET/blob/main/assets/resilient.svg</IconUrl>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>POlly;Policy;Simmy;Resilience;HTTP;Client</PackageTags>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>keys/ResilientRefit.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="8.0.8" />
+    <PackageReference Include="Polly" Version="8.4.2" />
+    <PackageReference Include="Polly.Extensions" Version="8.4.2" />
+    <PackageReference Include="Refit" Version="7.2.1" />
+    <PackageReference Include="Refit.HttpClientFactory" Version="7.2.1" />
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+</Project>

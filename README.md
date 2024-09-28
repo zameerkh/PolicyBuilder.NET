@@ -1,8 +1,8 @@
-# ResilientRefit
+# PolicyBuilder.NET
 
 ## Overview
 
-`ResilientRefit` is a library designed to enhance the resilience of Refit clients by integrating Polly policies. This library allows you to configure Refit clients with retry, circuit breaker, and timeout policies, ensuring that your HTTP requests are more robust and fault-tolerant.
+`PolicyBuilder.NET` is a library designed to enhance the resilience of Refit clients by integrating Polly policies. This library allows you to configure Refit clients with retry, circuit breaker, and timeout policies, ensuring that your HTTP requests are more robust and fault-tolerant.
 
 ## Features
 
@@ -12,7 +12,7 @@
 
 ## Installation
 
-To install `ResilientRefit`, add the following NuGet package to your project:
+To install `PolicyBuilder.NET`, add the PolicyBuilder.NET NuGet package to your project:
 
 
 ## Configuration
@@ -58,21 +58,16 @@ public interface IMyRefitClient { [Get("/endpoint")] Task<ApiResponse> GetEndpoi
 
 #### `ConfigureRefitClient<TClient>`
 
-Configures a Refit client with Polly policies.
+First step is to register the 
 
 ```csharp
 
-public class Startup
-{
-    public void ConfigureServices(IServiceCollection services)
-    {
-        var configuration = new ConfigurationBuilder()
-            .AddJsonFile("appsettings.json")
-            .Build();
+    // Configure Polly policies
+    var configuredPolicyName = services.ConfigurePollyPolicies<IMyRefitClient>(configuration, sectionName);
 
-      services.ConfigureRefitClient<IMyRefitClient>(configuration, "MyRefitClient");
-    }
-}
+    // Configure the Refit client with the base URL and Polly policies
+    services.AddRefitClient<IMyRefitClient>() // or any other means to add your http client
+        .AddPolicyHandlerFromRegistry(configuredPolicyName);
 
 ```
 
@@ -97,7 +92,7 @@ If you have any questions, suggestions, or would like to contribute to this proj
 - **Email**: [zameer.kh@gmail.com](mailto:zameer.kh@gmail.com)
 - **GitHub**: [@zameerkh](https://github.com/zameerkh)
 
-You can also open an issue on [GitHub Issues](https://github.com/zameerkh/ResilientRefit/issues) if you encounter any problems or have feature requests.
+You can also open an issue on [GitHub Issues](ps://github.com/zameerkh/PolicyBuilder.NET/issues) if you encounter any problems or have feature requests.
 
 
 
