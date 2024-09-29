@@ -1,4 +1,4 @@
-name: .NET Build
+name: .NET Build and Publish
 
 on:
   push:
@@ -11,25 +11,43 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout the repository code
+      # Step 1: Checkout the repository code
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Setup .NET SDK
+      # Step 2: Setup .NET SDK
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: '8.0.400'
+          dotnet-version: '8.0.400' # Specify the .NET SDK version
 
-      # Restore dependencies
+      # Step 3: Restore dependencies
       - name: Restore dependencies
         run: dotnet restore src/PolicyBuilder.NET.sln
 
-      # Build the project
-      - name: Build the project
+      # Step 4: Build the entire solution in Release mode
+      - name: Build the solution
         run: dotnet build src/PolicyBuilder.NET.sln --configuration Release --no-restore
 
-      # Run tests (if you have tests)
-      - name: Run xUnit tests
-        run: dotnet test src/Tests/PolicyBuilder.NET.Tests/PolicyBuilder.NET.Tests.csproj --no-restore --verbosity normal
+      # Step 5: Run xUnit tests for the test project
+      - name: Run tests
+        run: dotnet test src/Tests/PolicyBuilder.NET.Tests/PolicyBuilder.NET.Tests.csproj --configuration Release --no-restore --verbosity normal
 
+      # Step 6: Set dynamic version and publish to NuGet (only on 'main' branch)
+      - name: Set dynamic version and publish to NuGet
+        if: github.ref == 'refs/heads/main'
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }} # Securely reference the NuGet API Key
+        run: |
+          # Set dynamic version only on the 'main' branch
+          VERSION_BASE="1.2.0"  # Start the dynamic version from 1.2.0
+          GITHUB_RUN_NUMBER=${{ github.run_number }}
+          NEW_VERSION="$VERSION_BASE.$GITHUB_RUN_NUMBER"
+          echo "New version: $NEW_VERSION"
+          sed -i "s/<Version>.*<\/Version>/<Version>$NEW_VERSION<\/Version>/" src/PolicyBuilder.NET/PolicyBuilder.NET.csproj
+          
+          # Create NuGet package with dynamically updated version
+          dotnet pack src/PolicyBuilder.NET/PolicyBuilder.NET.csproj --configuration Release --no-build --output ./nupkg
+          
+          # Push the package to NuGet
+          dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
