@@ -1,0 +1,35 @@
+name: .NET Build
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the repository code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Setup .NET SDK
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '8.0.400'
+
+      # Restore dependencies
+      - name: Restore dependencies
+        run: dotnet restore src/PolicyBuilder.NET.sln
+
+      # Build the project
+      - name: Build the project
+        run: dotnet build src/PolicyBuilder.NET.sln --configuration Release --no-restore
+
+      # Run tests (if you have tests)
+      - name: Run xUnit tests
+        run: dotnet test src/Tests/PolicyBuilder.NET.Tests/PolicyBuilder.NET.Tests.csproj --no-restore --verbosity normal
+
