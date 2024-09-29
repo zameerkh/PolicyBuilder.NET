@@ -5,14 +5,13 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PackageId>PolicyBuilder.NET</PackageId>
-    <Version>1.0.6</Version>
+    <Version>1.1.1</Version>
     <!-- Use Semantic Versioning -->
     <Authors>Zameer Khan</Authors>
     <Description>A robust .NET library that helps to add resiliency policies to an http client</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/zameerkh/PolicyBuilder.NET</RepositoryUrl>
     <PackageProjectUrl>https://github.com/zameerkh/PolicyBuilder.NET</PackageProjectUrl>
-    <IconUrl>https://github.com/zameerkh/PolicyBuilder.NET/blob/main/assets/resilient.svg</IconUrl>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>POlly;Policy;Simmy;Resilience;HTTP;Client</PackageTags>
@@ -28,6 +27,7 @@
     <PackageReference Include="Refit" Version="7.2.1" />
     <PackageReference Include="Refit.HttpClientFactory" Version="7.2.1" />
     <None Include="README.md" Pack="true" PackagePath="" />
+    <None Include="assets/icon.png" Pack="true" PackagePath="assets/" />
   </ItemGroup>
 
 </Project>
