@@ -15,20 +15,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Setup .NET Core SDK
+      # Setup .NET SDK
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: '8.0.400' # You can specify other versions if needed
+          dotnet-version: '8.0.400'
 
       # Restore dependencies
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore src/PolicyBuilder.NET.sln
 
       # Build the project
       - name: Build the project
-        run: dotnet build --configuration Release --no-restore
+        run: dotnet build src/PolicyBuilder.NET.sln --configuration Release --no-restore
 
-      # Run tests (optional, only include this if you have unit tests)
+      # Run tests (if you have tests)
       - name: Run tests
-        run: dotnet test --no-restore --verbosity normal
+        run: dotnet test src/PolicyBuilder.NET.sln --no-restore --verbosity normal
