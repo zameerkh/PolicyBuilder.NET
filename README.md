@@ -59,7 +59,7 @@ public interface IMyRefitClient { [Get("/endpoint")] Task<ApiResponse> GetEndpoi
 
 
 
-First step is to register the register the policies defined in the appsettings.json to the policy registry
+First step is to register the policies defined in the appsettings.json to the policy registry
 
 ```csharp
 
